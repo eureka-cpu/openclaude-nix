@@ -94,15 +94,16 @@ in
     (lib.mkIf cfg.enable {
       home.packages = [ cfg.package ];
 
-      home.file.".openclaude.json".source =
-        let
-          # Nix-managed defaults; user settings merge on top (right side wins).
-          nixDefaults = {
+      # Copy as a regular writable file rather than a store symlink so that
+      # openclaude can write back updated settings at runtime.
+      home.activation.openclaude-settings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        install -Dm644 ${
+          jsonFormat.generate "openclaude-settings" ({
             autoUpdates = false;
             installMethod = "nixos";
-          };
-        in
-        jsonFormat.generate "openclaude-settings" (nixDefaults // cfg.settings);
+          } // cfg.settings)
+        } "$HOME/.openclaude.json"
+      '';
 
       home.file.".claude/CLAUDE.md" = lib.mkIf (cfg.claudeMd != null) {
         text = cfg.claudeMd;
